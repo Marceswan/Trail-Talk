@@ -2,6 +2,8 @@ import {validateProfileVisibility} from '@/lib/profile-visibility';
 import { normalizePostTags } from '@/lib/post-tags';
 import { account, requireAccount, HttpError, payload as readPayload, rateLimit, transaction, failure } from '@/lib/auth';
 import { commentsForPost, db, feed } from '@/lib/db';
+import { topics } from '@/lib/feed-navigation';
+import { canPublishPost } from '@/lib/post-permissions';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,10 +62,11 @@ export async function POST(request: Request) {
       const id=isPost?payload.postId:payload.commentId;
       if (!Number.isSafeInteger(id)) throw new HttpError('Content not found.',404);
       const row=(isPost
-        ? (await d.prepare('SELECT owner,removed,locked,revision FROM posts WHERE id=?').get(id))
+        ? (await d.prepare('SELECT owner,removed,locked,revision,community,tag FROM posts WHERE id=?').get(id))
         : (await d.prepare('SELECT c.owner,c.removed,c.revision,p.locked,p.removed AS post_removed FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.id=?').get(id)));
       if (!row || row.removed || row.post_removed) throw new HttpError('Content not found.',404);
       if (row.owner!==user) throw new HttpError('You can only edit your own content.',403);
+      if (isPost && !canPublishPost(current.role, String(row.community), String(row.tag))) throw new HttpError('Only admins and moderators can publish or edit announcements.',403);
       if (row.locked) throw new HttpError('This conversation is locked by moderators.',403);
       if (!Number.isSafeInteger(payload.revision)||payload.revision<0) throw new HttpError('A content revision is required.');
       if (row.revision!==payload.revision) throw new HttpError('This content changed in another tab. Copy your draft, reload, and try again.',409);
@@ -105,7 +108,8 @@ export async function POST(request: Request) {
       const community = field(payload.community, 'Community', 40);
       if (!(await d.prepare('SELECT id FROM communities WHERE id=?').get(community))) throw new HttpError('Choose a community.');
       const tag = field(payload.tag, 'Topic', 30);
-      if (!['Discussion','Question','Show & tell','Tips & tricks','Career wins'].includes(tag)) throw new HttpError('Choose a valid topic.');
+      if (!topics.slice(1).includes(tag)) throw new HttpError('Choose a valid topic.');
+      if (!canPublishPost(current.role, community, tag)) throw new HttpError('Only admins and moderators can publish or edit announcements.',403);
       const initials = profile.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
       const result = (await d.prepare('INSERT INTO posts (community, author, initials, title, body, tag, created_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id').run(community, profile.name, initials, title, body, tag, Date.now(), user));
       await saveTags(Number(result.lastInsertRowid),payload.tags);

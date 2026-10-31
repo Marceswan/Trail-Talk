@@ -1,5 +1,13 @@
 [
   {
+    "id": "announcements",
+    "name": "Announcements",
+    "description": "Official TrailTalk news and community updates. Only admins and moderators can publish posts; everyone is welcome to read and reply.",
+    "color": "#0879d9",
+    "icon": "message",
+    "members": 0
+  },
+  {
     "id": "flow-n-tell",
     "name": "Flow 'n Tell",
     "description": "Showcase what you've built. Share your flows, apps, automations, and demos, get feedback, and help others learn from your work.",

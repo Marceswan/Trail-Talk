@@ -1,6 +1,6 @@
 export type View='home'|'popular'|'latest'|'saved'|'following'|'mine'|'questions';
 export const views:View[]=['home','popular','latest','saved','following','mine','questions'];
-export const topics=['All posts','Discussion','Question','Show & tell','Tips & tricks','Career wins'];
+export const topics=['All posts','Discussion','Question','Show & tell','Tips & tricks','Career wins','Announcements'];
 export function feedUrl(params:URLSearchParams) {
   const safe=new URLSearchParams();
   for(const key of ['view','community','q','topic','sort','status','label']) {
