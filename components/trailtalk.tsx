@@ -15,6 +15,8 @@ import { CommentThread } from './comment-thread';
 import { feedUrl, returnFeedUrl, views, topics, type View } from '@/lib/feed-navigation';
 import { AccountPanel } from './account-panel';
 import { Landscape } from './landscape';
+import { Dialog } from './dialog';
+import { PostComposer } from './post-composer';
 
 type Modal = 'create' | 'communities' | 'profile' | 'about' | 'account' | 'report' | 'edit' | null;
 const communityIcons = { cloud: Cloud, shield: ShieldCheck, code: Code2, sparkles: Sparkles, award: Award, workflow: Workflow };
@@ -35,23 +37,6 @@ function ago(timestamp: number) {
 }
 function shortCount(number: number) { return number >= 1000 ? `${(number / 1000).toFixed(1)}k` : String(number); }
 
-function Dialog({ title, subtitle, children, onClose, wide = false }: { title: string; subtitle?: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    const previousOverflow = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      document.documentElement.style.overflow = previousOverflow;
-    };
-  }, []);
-  return <dialog ref={ref} className={`dialog ${wide ? 'wide' : ''}`} onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) onClose(); }} aria-labelledby="dialog-title">
-    <div className="dialog-heading"><div><h2 id="dialog-title">{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button className="icon-button" onClick={onClose} aria-label="Close dialog"><X size={21}/></button></div>
-    <div className="dialog-body">{children}</div>
-  </dialog>;
-}
 
 function ComponentPreview() {
   return <div className="component-preview" aria-label="Preview of Lightning UI component collection" role="img">
@@ -231,7 +216,7 @@ export default function TrailTalk({ postId = null }: { postId?: number | null })
     <section className="community-guidelines"><h3>Good people. Good conversations.</h3><p>Be kind. Stay curious. Share what you know.<br/>We’re all here to grow together.</p><button onClick={()=>openModal('about')}>Our community guidelines <ArrowUpRight size={13}/></button></section><div className="rail-footer"><button onClick={()=>openModal('about')}>About</button><span>·</span><a href="https://www.salesforce.com/" target="_blank" rel="noreferrer">Salesforce</a><span>·</span><button onClick={()=>openModal('about')}>Community guidelines</button><p>Independent community. Not affiliated with Salesforce.</p></div></aside>
     </div></div></main>
 
-    {modal==='create'&&<Dialog title="Start a conversation" subtitle="A question, an idea, a small win. It all belongs here." onClose={()=>setModal(null)}><form className="post-form" onSubmit={async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const fields=new FormData(e.currentTarget);const result=await mutate({action:'post',title:fields.get('title'),body:fields.get('body'),community:fields.get('community'),tag:fields.get('tag')});if(result){setModal(null);navigate(view==='questions'&&fields.get('tag')==='Question'?'questions':'latest');setNotice('Your post is live. Let the conversation begin!');}}}><div className="form-row"><label>Community<select aria-label="Community" name="community" defaultValue={communityId||'salesforce'}>{data?.communities.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Topic<select aria-label="Topic" name="tag" defaultValue={view==='questions'?'Question':'Discussion'}>{topics.slice(1).map(t=><option key={t}>{t}</option>)}</select></label></div><label>Title<input name="title" required minLength={5} maxLength={180} placeholder="Give your conversation a good starting point"/></label><MarkdownEditor label="Your post" name="body" required minLength={10} maxLength={10000} rows={7} placeholder="Share a little context. What have you tried? What did you learn?"/><div className="posting-as"><span className="avatar profile-avatar">{data?.profile.registered?profileInitials:'↗'}</span>{!data?.profile.registered&&<span>Sign in</span>}<span>Posting as <strong>{data?.profile.name}</strong></span></div>{formError&&<p className="form-error" role="alert">{formError}</p>}<div className="dialog-footer"><span>Be kind. Be helpful. Be yourself.</span><button className="primary-button" disabled={busy||!data}>{busy?<LoaderCircle size={16} className="spin"/>:<Plus size={16}/>}Publish post</button></div></form></Dialog>}
+    {modal==='create'&&data?.profile.email&&<PostComposer key={data.profile.email} profile={data.profile} communities={data.communities} initialCommunity={communityId||'salesforce'} initialTopic={view==='questions'?'Question':'Discussion'} onClose={()=>setModal(null)} onSignIn={()=>openModal('account')} onPublished={(result,tag,warning)=>{setData(result);setModal(null);navigate(view==='questions'&&tag==='Question'?'questions':'latest');setNotice(warning||'Your post is live. Let the conversation begin!');}}/>}
 
     {modal==='edit'&&editingPost&&<Dialog title="Edit post" subtitle="Keep the context that people have already replied to." onClose={()=>setModal(null)}><form className="post-form" onSubmit={async e=>{e.preventDefault();const fields=new FormData(e.currentTarget);if(await mutate({action:'editPost',postId:editingPost.id,revision:editingPost.revision,title:fields.get('title'),body:fields.get('body')})){setModal(null);setNotice('Your post is updated.');}}}><label>Title<input name="title" required minLength={5} maxLength={180} defaultValue={editingPost.title}/></label><MarkdownEditor label="Your post" name="body" required minLength={10} maxLength={10000} rows={7} defaultValue={editingPost.body}/>{formError&&<p className="form-error" role="alert">{formError}</p>}<div className="dialog-footer"><button type="button" className="text-button" onClick={()=>setModal(null)}>Cancel</button><button className="primary-button" disabled={busy}>Save changes</button></div></form></Dialog>}
 

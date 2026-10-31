@@ -1,10 +1,11 @@
+import { database, useSQLite } from './database';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Comment, FeedData } from './types';
 
 const globalDb = globalThis as unknown as { trailtalkDb?: DatabaseSync };
-export function db() {
+function sqliteDb() {
   if (globalDb.trailtalkDb) return globalDb.trailtalkDb;
   const path = process.env.DATABASE_PATH || join(process.cwd(), 'data', 'trailtalk.sqlite');
   mkdirSync(dirname(path), { recursive: true });
@@ -99,8 +100,11 @@ export function db() {
   return connection;
 }
 
-export function commentsForPost(postId: number, user: string): Comment[] {
-  return db().prepare(`SELECT c.id, CASE WHEN c.removed=1 THEN 'Moderator' ELSE c.author END AS author, CASE WHEN c.removed=1 THEN '[Removed by moderators]' ELSE c.body END AS body, c.created_at, c.removed, c.parent_id, c.edited_at, c.revision, COALESCE(c.owner=? AND c.removed=0,0) AS owned,
+useSQLite(sqliteDb);
+export const db = () => database;
+
+export async function commentsForPost(postId: number, user: string): Promise<Comment[]> {
+  return await db().prepare(`SELECT c.id, CASE WHEN c.removed=1 THEN 'Moderator' ELSE c.author END AS author, CASE WHEN c.removed=1 THEN '[Removed by moderators]' ELSE c.body END AS body, c.created_at, c.removed, c.parent_id, c.edited_at, c.revision, CASE WHEN c.owner=? AND c.removed=0 THEN 1 ELSE 0 END AS owned,
     COALESCE((SELECT SUM(v.value) FROM comment_votes v WHERE v.comment_id=c.id), 0) AS score,
     COALESCE((SELECT v.value FROM comment_votes v WHERE v.comment_id=c.id AND v.user_id=?), 0) AS vote
     FROM comments c WHERE c.post_id=? ORDER BY c.created_at DESC, c.id DESC`).all(user, user, postId) as Comment[];
@@ -147,17 +151,17 @@ function seed(d: DatabaseSync) {
 
 // Binds the current user three times: ownership, vote, and bookmark.
 export const publicPostColumns=`p.id,p.community,p.author,p.initials,p.title,p.body,p.tag,p.visual,p.created_at,p.locked,p.edited_at,p.revision,p.answer_revision,
-      (SELECT c.id FROM comments c WHERE c.id=p.accepted_comment_id AND c.post_id=p.id AND c.removed=0 AND p.tag='Question') AS accepted_comment_id,COALESCE(p.owner=?,0) AS owned, p.base_score + COALESCE((SELECT SUM(v.value) FROM votes v WHERE v.post_id=p.id),0) AS score,
+      (SELECT c.id FROM comments c WHERE c.id=p.accepted_comment_id AND c.post_id=p.id AND c.removed=0 AND p.tag='Question') AS accepted_comment_id,CASE WHEN p.owner=? THEN 1 ELSE 0 END AS owned, p.base_score + COALESCE((SELECT SUM(v.value) FROM votes v WHERE v.post_id=p.id),0) AS score,
       COALESCE((SELECT v.value FROM votes v WHERE v.post_id=p.id AND v.user_id=?),0) AS vote,
       EXISTS(SELECT 1 FROM saves s WHERE s.post_id=p.id AND s.user_id=?) AS saved,
       (SELECT COUNT(*) FROM comments c WHERE c.post_id=p.id) AS comment_count`;
 
-export function feed(user: string): FeedData {
+export async function feed(user: string): Promise<FeedData> {
   const d = db();
   return {
-    communities: d.prepare(`SELECT c.*, EXISTS(SELECT 1 FROM memberships m WHERE m.community=c.id AND m.user_id=?) AS joined,
+    communities: await d.prepare(`SELECT c.*, EXISTS(SELECT 1 FROM memberships m WHERE m.community=c.id AND m.user_id=?) AS joined,
       c.members + (SELECT COUNT(*) FROM memberships m WHERE m.community=c.id) AS members FROM communities c`).all(user),
-    posts: d.prepare(`SELECT ${publicPostColumns} FROM posts p WHERE p.removed=0 ORDER BY p.created_at DESC`).all(user, user, user),
-    profile: d.prepare('SELECT name,bio,email,role,suspended,(password_hash IS NOT NULL) AS registered FROM profiles WHERE id=?').get(user) || { name: 'Guest', bio: '', email: null, role: 'user', suspended: 0, registered: 0 },
+    posts: await d.prepare(`SELECT ${publicPostColumns} FROM posts p WHERE p.removed=0 ORDER BY p.created_at DESC`).all(user, user, user),
+    profile: await d.prepare('SELECT name,bio,email,role,suspended,(password_hash IS NOT NULL) AS registered FROM profiles WHERE id=?').get(user) || { name: 'Guest', bio: '', email: null, role: 'user', suspended: 0, registered: 0 },
   } as unknown as FeedData;
 }

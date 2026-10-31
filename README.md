@@ -1,6 +1,6 @@
 # TrailTalk
 
-A Salesforce-themed community app with a custom, responsive Reddit-style interface. Built with Next.js, React, TypeScript, and SQLite. **One app, one database, no other services.**
+A Salesforce-themed community app with a custom, responsive Reddit-style interface. Built with Next.js, React, TypeScript, and Postgres (or SQLite for local development). **One app, one database, no other services.**
 
 ## Run locally
 
@@ -16,6 +16,7 @@ Open [localhost:3000](http://localhost:3000). The app creates `data/trailtalk.sq
 ## Included
 
 - Responsive home feed, community feeds, following feed, topic filters, text search, and best/newest/top sorting. Fluid typography and spacing adapt from phones to wide displays; tablets use a navigation drawer, mobile search gets its own row, and secondary content hides before the feed becomes cramped.
+- Post drafts automatically save per account in this browser, survive closing/reloading, and remain after failed publishing. Conflicting tabs require a choice before publishing; unavailable browser storage warns before discarding unsaved text. Drafts are local and are not encrypted or synced. Successful publishing clears the matching saved draft.
 - Create posts, upvote/downvote posts and comments, comment, bookmark, and copy a direct link to a conversation. Comment votes persist per account; choosing the opposite direction switches your vote, and clicking the selected direction removes it. Threads open as full pages at `/posts/:id`, with normal document scrolling, browser history, and a back-to-feed link. Older `/?post=:id` links redirect to the thread page.
 - Threaded replies (up to five levels), newest/top/oldest comment sorting, collapsible reply branches, and direct comment links. Removed comments keep their replies visible; locked conversations reject new replies. Failed comment saves keep the typed draft on screen.
 - Comfortable and Compact feed layouts, with the selected density remembered in this browser. Search, community, topic, view, and sorting stay in the URL; threads link back to the filtered feed. The home/community welcome is shorter, and Saved, Following, search, and topic views use concise headings.
@@ -27,7 +28,7 @@ Open [localhost:3000](http://localhost:3000). The app creates `data/trailtalk.sq
 - Join and leave communities. Edit an account display name and bio.
 - Persistent database-backed state, validated writes, parameterized queries, same-origin checks, accessible native dialogs, and reduced-motion support. All dialogs share responsive content insets aligned with their headings, with scrollable bodies and reachable close controls. Account tabs, recovery controls, and secondary actions use consistent spacing.
 
-Seed conversations and historical score/member counts are demonstration data. New content and interactions are stored in SQLite. Accounts use email and password sign-in with saved recovery codes. These are TrailTalk accounts, not Salesforce accounts. Email is an identifier only; no verification or recovery email is sent. There is no external auth, email, or notification delivery service. In-app notifications are generated for new comments and replies, in the same database transaction as the comment. Older activity is not backfilled.
+Seed conversations and historical score/member counts are demonstration data. New content and interactions are stored in the configured database. Accounts use email and password sign-in with saved recovery codes. These are TrailTalk accounts, not Salesforce accounts. Email is an identifier only; no verification or recovery email is sent. There is no external auth, email, or notification delivery service. In-app notifications are generated for new comments and replies, in the same database transaction as the comment. Older activity is not backfilled.
 
 ## Accounts and recovery
 
@@ -43,17 +44,17 @@ Browsing is public. Posting, comments, votes, saves, memberships, profile edits,
 
 ## Moderation
 
-Register your own account first, then grant administrator access using the local database command:
+Register your own account first, then grant administrator access using the database command:
 
 ```sh
 npm run admin -- your-account@example.com
 ```
 
-For a custom database, supply the same `DATABASE_PATH` used by the app. This command is intended for the host administrator and requires local database access. There is no first-user admin shortcut or public role-grant endpoint. Refresh the app to see **Moderation** in the navigation.
+The command loads `.env.local` and uses Neon when `DATABASE_URL` is set. An explicit `DATABASE_PATH` selects local SQLite instead. This command is intended for the host administrator and requires database credentials. There is no first-user admin shortcut or public role-grant endpoint. Refresh the app to see **Moderation** in the navigation.
 
 The moderation workspace includes reports, posts, comments, accounts, and action history. Members can report posts and comments; duplicate open reports are combined. Moderators can remove/restore content, lock/unlock conversations, dismiss reports, and suspend/restore member access. Administrators can also appoint/remove moderators and suspend moderators. Administrator accounts are protected from these web actions; users cannot suspend themselves.
 
-Removed posts disappear from public feeds and direct URLs. Removed comments become tombstones with their original text withheld from public responses. Original content remains available to moderators for restoration. Locks prevent new comments, member edits, and accepted-answer changes while allowing voting. Removing an accepted comment hides its solved status and summary. Restoring it restores the selection, unless the question author has chosen another answer in the meantime. Reports and the latest 100 audit actions are private to moderators; every action requires a reason. Content and account lists show up to 100 matches and support filtering. Older records remain in SQLite.
+Removed posts disappear from public feeds and direct URLs. Removed comments become tombstones with their original text withheld from public responses. Original content remains available to moderators for restoration. Locks prevent new comments, member edits, and accepted-answer changes while allowing voting. Removing an accepted comment hides its solved status and summary. Restoring it restores the selection, unless the question author has chosen another answer in the meantime. Reports and the latest 100 audit actions are private to moderators; every action requires a reason. Content and account lists show up to 100 matches and support filtering. Older records remain in the database.
 
 ## Production
 
@@ -70,13 +71,19 @@ DATABASE_PATH=/persistent-data/trailtalk.sqlite COOKIE_SECURE=true npm start
 
 Set `COOKIE_SECURE=true` behind HTTPS. Back up the database with SQLite's backup API or a consistent filesystem snapshot; remember that an active WAL database may have `-wal` and `-shm` sidecars. Do not deploy this local SQLite build to an ephemeral filesystem. Configure your reverse proxy with request-size and connection limits before public deployment. In-app rate limits are stored in SQLite; authentication also has a global CPU-abuse limit.
 
-### Vercel build settings
+### Vercel + Neon
 
-`vercel.json` explicitly selects the Next.js framework, runs `npm run build`, and clears any static output-directory override. For `STATIC_BUILD_NO_OUT_DIR` mentioning `public`, use the repository root as the project Root Directory and redeploy the latest commit. This is a server application; do not create an empty `public` directory or enable static export to bypass the error.
+The production app uses **one Vercel app and one Neon Postgres database**. Account recovery and notifications stay in that database; no email or external auth service is used.
 
-This configuration fixes framework selection only. The current local SQLite database still requires a single host with persistent disk. Vercel Functions cannot persist this database; a Vercel deployment needs a managed database integration and corresponding application changes before accounts, posts, and moderation can work reliably. See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json) and [SQLite limitations](https://vercel.com/kb/guide/is-sqlite-supported-in-vercel).
+1. Connect Neon to the Vercel project, supplying `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct). Keep SSL enabled. Do not set `DATABASE_PATH` on Vercel.
+2. Put the same connection strings in ignored `.env.local`, then run `npm run db:migrate`. The migration adds TrailTalk tables and seeds an empty database; it never drops existing tables or changes Neon Auth tables. Run migrations before deploying schema changes, rather than during builds.
+3. Deploy the repository root with the Next.js framework. `vercel.json` clears the incorrect static `public` output-directory override. HTTPS session cookies are enabled automatically on Vercel.
 
-If you later choose Vercel, installing its CLI with `npm i -g vercel` is strongly recommended for `vercel env pull`, `vercel deploy`, and `vercel logs`. That deployment would require replacing local-file SQLite with a persistent hosted database; the current app intentionally stays self-contained.
+The runtime uses asynchronous Postgres queries and a small connection pool. Transactions reserve one connection and serialize related writes across instances, preserving recovery-code replay protection, edit conflicts, and moderation consistency. Local SQLite remains available when no `DATABASE_URL` is set; an explicit `DATABASE_PATH` takes precedence for isolated tests.
+
+To import an existing local SQLite database into an **empty** Postgres destination, first back it up, then run `npm run db:migrate -- --import-sqlite=/absolute/path/trailtalk.sqlite`. Import is transactional and refuses to merge into nonempty TrailTalk tables. Without that flag, migration initializes demonstration conversations only. Never commit connection strings; `.env.local` and `.vercel/` are ignored.
+
+Installing the Vercel CLI with `npm i -g vercel` is strongly recommended for `vercel env pull`, `vercel deploy`, and `vercel logs`; `npx vercel` also works. Production secrets marked sensitive may appear as `[SENSITIVE]` when pulled locally—supply real local values before running migrations. See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json) and [node-postgres SSL](https://node-postgres.com/features/ssl).
 
 ## Verify
 
@@ -87,6 +94,8 @@ npm test
 ```
 
 Browser tests use installed Google Chrome and start a separate app on port 3100 with a fresh database in the OS temporary directory. They cover account isolation, durable votes/saves/memberships, input validation, origin rejection, publishing, commenting, profile changes, search, and mobile navigation. Comment-vote tests cover persistence, vote switching/removal, account isolation, invalid input, and failed-save recovery. They also cover full-page thread navigation, legacy links, browser history, long conversation scrolling, and dialog scrolling on small screens. Responsive checks cover 320, 390, 768, 1024, 1280, 1440, 1920, and 2560px widths, plus short landscape screens. Account and moderation tests cover hashed credentials, session revocation, concurrent recovery/replay rejection, throttling, role boundaries, report deduplication, removal/restoration, locking, suspensions, audit history, and the mobile recovery/moderation flows. Conversation experience checks cover nested replies, parent validation, depth limits, moderator restrictions, failed-save drafts, comment sorting/collapse/permalinks, URL history, filtered return links, and persistent Compact layouts. Member-tool checks cover ownership, edit conflicts, moderation restrictions, private notification recipients, deduplication, pagination, read state, removed-content filtering, and mobile editing/inbox flows. Writing checks cover preview publishing, source-preserving edits, selection formatting, failed-save drafts, unsafe content, clean excerpts, code-copy feedback, validation from preview, character limits, and contained scrolling at 320–1440px. Question checks cover accept/replace/reopen, ownership and moderator boundaries, stale changes, removed-content handling, nested answer navigation, filtered return URLs, question creation defaults, save failures, and mobile layouts. Search tests cover terms/phrases, literal SQL wildcard characters, ranking, pagination, private view boundaries, removed content, rapid query changes, loading failures/retries, reply links, and mobile layouts. Spacing checks cover account modes and recovery sheets, create/edit/profile/report/directory/about dialogs, feed and question toolbars, inbox states, and moderation review at 320–1440px. They do not modify your development database.
+
+Run `npm run test:postgres` with `.env.local` configured to verify real Postgres persistence, search, moderation, edit conflicts, and concurrent recovery. It creates and removes only a randomly named temporary schema; production tables are untouched.
 
 ## Structure
 
@@ -99,7 +108,9 @@ Browser tests use installed Google Chrome and start a separate app on port 3100 
 - `app/globals.css`: responsive visual system; fonts are bundled locally.
 - `app/api/search/route.ts`, `components/search-results.tsx`, and `lib/search-text.ts`: filtered search, cancellation/pagination, safe highlighting, and matching excerpts.
 - `app/api/community/route.ts`: same-origin JSON API and authenticated community actions.
-- `lib/db.ts`: additive SQLite migrations, seed data, and public queries.
+- `lib/db.ts`: local SQLite setup, seed data, and asynchronous public queries.
+- `lib/database.ts`: Postgres/SQLite query adapter and transaction isolation.
+- `scripts/migrate-postgres.mjs`: additive Postgres setup and optional SQLite import.
 - `lib/auth.ts` and `app/api/account/route.ts`: password authentication, sessions, recovery, and rate limits.
 - `app/api/moderation/route.ts` and `components/moderation-workspace.tsx`: moderation permissions and review UI.
 - `scripts/admin.mjs`: local administrator bootstrap.
