@@ -4,6 +4,7 @@ import { account, requireAccount, HttpError, payload as readPayload, rateLimit, 
 import { commentsForPost, db, feed } from '@/lib/db';
 import { topics } from '@/lib/feed-navigation';
 import { canPublishPost } from '@/lib/post-permissions';
+import {savePostImages,validateImages} from '@/lib/post-images';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,11 +71,15 @@ export async function POST(request: Request) {
       if (row.locked) throw new HttpError('This conversation is locked by moderators.',403);
       if (!Number.isSafeInteger(payload.revision)||payload.revision<0) throw new HttpError('A content revision is required.');
       if (row.revision!==payload.revision) throw new HttpError('This content changed in another tab. Copy your draft, reload, and try again.',409);
-      const body=field(payload.body,isPost?'Post':'Comment',isPost?10000:4000,isPost?10:1);
+      const hasImages=isPost&&(payload.images===undefined
+        ? Boolean(await d.prepare('SELECT id FROM post_images WHERE post_id=? LIMIT 1').get(id))
+        : validateImages(payload.images).length>0);
+      const body=field(payload.body,isPost?'Post':'Comment',isPost?10000:4000,isPost?(hasImages?0:10):1);
       if(isPost) {
         const title=field(payload.title,'Title',180,5);
         (await d.prepare('UPDATE posts SET title=?,body=?,edited_at=?,revision=revision+1 WHERE id=? AND owner=? AND revision=?').run(title,body,Date.now(),id,user,payload.revision));
         if(payload.tags!==undefined) await saveTags(id,payload.tags);
+        if(payload.images!==undefined) await savePostImages(id,user,payload.images);
       } else {
         (await d.prepare('UPDATE comments SET body=?,edited_at=?,revision=revision+1 WHERE id=? AND owner=? AND revision=?').run(body,Date.now(),id,user,payload.revision));
         const postId=(await d.prepare('SELECT post_id FROM comments WHERE id=?').get(id))!.post_id as number;
@@ -104,7 +109,8 @@ export async function POST(request: Request) {
     } else if (action === 'post') {
       if (payload.expectedAccount !== undefined && payload.expectedAccount !== current.email) throw new HttpError('Your signed-in account changed. Close this draft and refresh before publishing.',409);
       const title = field(payload.title, 'Title', 180, 5);
-      const body = field(payload.body, 'Post', 10000, 10);
+      const images=validateImages(payload.images);
+      const body = field(payload.body, 'Post', 10000, images.length?0:10);
       const community = field(payload.community, 'Community', 40);
       if (!(await d.prepare('SELECT id FROM communities WHERE id=?').get(community))) throw new HttpError('Choose a community.');
       const tag = field(payload.tag, 'Topic', 30);
@@ -113,6 +119,7 @@ export async function POST(request: Request) {
       const initials = profile.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
       const result = (await d.prepare('INSERT INTO posts (community, author, initials, title, body, tag, created_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id').run(community, profile.name, initials, title, body, tag, Date.now(), user));
       await saveTags(Number(result.lastInsertRowid),payload.tags);
+      await savePostImages(Number(result.lastInsertRowid),user,images);
       return Response.json({ ...(await feed(user)), createdId: Number(result.lastInsertRowid) });
     } else if (action === 'comment') {
       if ((await d.prepare('SELECT locked FROM posts WHERE id=?').get(payload.postId))?.locked) throw new HttpError('This conversation is locked by moderators.',403);

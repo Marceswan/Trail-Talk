@@ -1,17 +1,19 @@
 'use client';
 import {useEffect, useRef, useState} from 'react';
 import {topics} from '@/lib/feed-navigation';
+import {imageIdPattern,MAX_POST_IMAGES,type PostImage} from '@/lib/image-limits';
 
-export type PostDraft = {title:string; body:string; community:string; tag:string; tagsText?:string};
+export type PostDraft = {title:string; body:string; community:string; tag:string; tagsText?:string; images?:PostImage[]};
 type Status = 'empty' | 'saved' | 'restored' | 'error' | 'conflict' | 'invalid';
 export const draftKey = (account:string) => `trailtalk-post-draft:v1:${encodeURIComponent(account.toLowerCase())}`;
-const hasText = (draft:PostDraft) => Boolean(draft.title || draft.body);
+const hasText = (draft:PostDraft) => Boolean(draft.title || draft.body || draft.images?.length);
 function parseDraft(raw:string|null):PostDraft|null {
   if (!raw) return null;
   try {
     const value=JSON.parse(raw);
     if (value.version!==1 || typeof value.title!=='string' || value.title.length>180 || typeof value.body!=='string' || value.body.length>10000 || typeof value.community!=='string' || !value.community || value.community.length>40 || !topics.slice(1).includes(value.tag)) return null;
-    return {title:value.title, body:value.body, community:value.community, tag:value.tag, tagsText:typeof value.tagsText==='string'?value.tagsText.slice(0,180):''};
+    const images=Array.isArray(value.images)?value.images.slice(0,MAX_POST_IMAGES).filter((image:PostImage)=>image&&typeof image.id==='string'&&imageIdPattern.test(image.id)&&typeof image.alt==='string'&&image.alt.length<=200&&Number.isSafeInteger(image.width)&&image.width>0&&Number.isSafeInteger(image.height)&&image.height>0):[];
+    return {title:value.title, body:value.body, community:value.community, tag:value.tag, tagsText:typeof value.tagsText==='string'?value.tagsText.slice(0,180):'',images};
   } catch { return null; }
 }
 

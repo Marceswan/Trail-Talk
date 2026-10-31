@@ -4,7 +4,7 @@ export type Community = {
 };
 export type Post = {
   id: number; community: string; author: string; initials: string;
-  author_id?: string | null; title: string; body: string; tag: string; tags?: string[]; visual: string | null;
+  author_id?: string | null; title: string; body: string; tag: string; tags?: string[]; images?:import('./image-limits').PostImage[]; visual: string | null;
   created_at: number; score: number; vote: number; saved: boolean; comment_count: number; locked: number; owned: number; edited_at: number | null; revision: number; accepted_comment_id: number | null; answer_revision: number;
 };
 export type Comment = { id: number; author_id?:string|null; author: string; body: string; created_at: number; score: number; vote: -1 | 0 | 1; removed: number; parent_id: number | null; owned: number; edited_at: number | null; revision: number };

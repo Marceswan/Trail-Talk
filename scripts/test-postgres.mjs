@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {spawn,spawnSync} from 'node:child_process';
 import {request} from '@playwright/test';
+import sharp from 'sharp';
 const schema=`trailtalk_test_${randomUUID().replaceAll('-','')}`;
 const connection=process.env.DATABASE_URL_UNPOOLED||process.env.DATABASE_URL;
 if(!connection)throw new Error('Set DATABASE_URL to run Postgres integration tests.');
@@ -30,7 +31,14 @@ try{
   let publicPage=await (await a.get(`/members/${feed.profile.id}`)).text();assert.ok(publicPage.includes('Architect'));assert.ok(!publicPage.includes('Hidden Employer'));assert.ok(!publicPage.includes(email));
   await json(a,'/api/community',{action:'profile',name:'PG Author',bio:'Postgres profile',visibility:{email:true,employer:false}});
   publicPage=await (await a.get(`/members/${feed.profile.id}`)).text();assert.ok(publicPage.includes(email));assert.ok(!publicPage.includes('Hidden Employer'));
-  const created=await json(a,'/api/community',{action:'post',title:'Postgres SEARCH 50%_literal?',body:'A durable PostgreSQL question for integration verification.',community:'salesforce',tag:'Question',tags:['Health Cloud','Flow']});const id=created.createdId;assert.ok(id>6);assert.deepEqual(created.posts.find(p=>p.id===id).tags,['flow','health-cloud']);
+  const imageBytes=await sharp({create:{width:200,height:100,channels:3,background:'#087bdf'}}).png().toBuffer();
+  const uploaded=await a.post('/api/images',{multipart:{image:{name:'postgres-image.png',mimeType:'image/png',buffer:imageBytes}}});assert.equal(uploaded.status(),201);
+  const attachment={...await uploaded.json(),alt:'Postgres attachment test'};
+  const imageUrl=`/api/images/${attachment.id}`;
+  assert.equal((await b.get(imageUrl)).status(),404);
+  const created=await json(a,'/api/community',{action:'post',title:'Postgres SEARCH 50%_literal?',body:'A durable PostgreSQL question for integration verification.',community:'salesforce',tag:'Question',tags:['Health Cloud','Flow'],images:[attachment]});const id=created.createdId;assert.ok(id>6);assert.deepEqual(created.posts.find(p=>p.id===id).tags,['flow','health-cloud']);
+  assert.deepEqual(created.posts.find(p=>p.id===id).images,[attachment]);
+  const storedImage=await b.get(imageUrl);assert.equal(storedImage.status(),200);assert.equal((await sharp(await storedImage.body()).metadata()).format,'webp');
   await json(b,'/api/community',{action:'comment',postId:id,body:'A useful persisted answer.'});
   const comments=await json(a,`/api/community?post=${id}`);const commentId=comments.comments[0].id;assert.ok(commentId>8);
   await json(a,'/api/community',{action:'commentVote',commentId,value:1});
@@ -63,8 +71,10 @@ try{
   await json(a,'/api/moderation',{action:'lock',targetType:'post',targetId:id,reason:'Integration test lock'});
   await json(b,'/api/community',{action:'comment',postId:id,body:'Blocked by lock.'},403);
   await json(a,'/api/moderation',{action:'remove',targetType:'post',targetId:id,reason:'Integration test removal'});
+  assert.equal((await b.get(imageUrl)).status(),404);
   assert.equal((await b.get(`/posts/${id}`)).status(),404);
   await json(a,'/api/moderation',{action:'restore',targetType:'post',targetId:id,reason:'Integration test restoration'});
+  assert.equal((await b.get(imageUrl)).status(),200);
   const resets=await Promise.all([a,b].map(c=>c.post('/api/account',{data:{action:'recover',email,code:registered.codes[0],password:password+'new'}})));
   assert.deepEqual(resets.map(r=>r.status()).sort(),[200,401]);
   await json(a,'/api/community',{action:'vote',postId:id,value:1},401);
@@ -73,7 +83,7 @@ try{
   assert.equal(spawnSync(process.execPath,['scripts/migrate-postgres.mjs'],{env:{...env,TRAILTALK_DEMO_DATA:'false'},encoding:'utf8'}).status,0);
   const cleaned=await json(a,'/api/community');assert.equal(cleaned.posts.length,1);assert.equal(cleaned.posts[0].id,id);
   assert.equal((await b.get('/posts/1')).status(),404);
-  console.log('Postgres integration passed: migration, accounts, posts, comments, votes, edits, search, inbox, moderation, admin roles, site settings, concurrent recovery.');
+  console.log('Postgres integration passed: migration, accounts, posts, image uploads/privacy, comments, votes, edits, search, inbox, moderation, admin roles, site settings, concurrent recovery.');
 }finally{
   for(const c of contexts)await c.dispose();
   if(server){server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));}

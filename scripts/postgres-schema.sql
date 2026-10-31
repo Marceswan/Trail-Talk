@@ -17,6 +17,15 @@ CREATE TABLE IF NOT EXISTS posts (
       owner TEXT REFERENCES profiles(id)
     , removed INTEGER NOT NULL DEFAULT 0, locked INTEGER NOT NULL DEFAULT 0, edited_at BIGINT, revision INTEGER NOT NULL DEFAULT 0, answer_revision INTEGER NOT NULL DEFAULT 0);
 
+CREATE TABLE IF NOT EXISTS post_images (
+  id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES profiles(id),
+  post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE, data BYTEA NOT NULL,
+  width INTEGER NOT NULL, height INTEGER NOT NULL, alt TEXT NOT NULL DEFAULT '',
+  position INTEGER NOT NULL DEFAULT 0, created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS post_images_post ON post_images(post_id,position);
+CREATE INDEX IF NOT EXISTS post_images_owner ON post_images(owner);
+
 CREATE TABLE IF NOT EXISTS votes (
       user_id TEXT NOT NULL REFERENCES profiles(id), post_id INTEGER NOT NULL REFERENCES posts(id),
       value INTEGER NOT NULL CHECK(value IN (-1, 1)), PRIMARY KEY(user_id, post_id)

@@ -61,6 +61,14 @@ function sqliteDb() {
       label TEXT NOT NULL, PRIMARY KEY(post_id,label)
     );
     CREATE INDEX IF NOT EXISTS post_tags_label ON post_tags(label,post_id);
+    CREATE TABLE IF NOT EXISTS post_images (
+      id TEXT PRIMARY KEY, owner TEXT NOT NULL REFERENCES profiles(id),
+      post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE, data BLOB NOT NULL,
+      width INTEGER NOT NULL, height INTEGER NOT NULL, alt TEXT NOT NULL DEFAULT '',
+      position INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS post_images_post ON post_images(post_id,position);
+    CREATE INDEX IF NOT EXISTS post_images_owner ON post_images(owner);
 
   `);
   // Additive migrations preserve existing posts, comments, and browser profiles.
@@ -169,10 +177,11 @@ export async function feed(user: string): Promise<FeedData> {
   } as unknown as FeedData;
 }
 
-export async function withPostTags<T extends {id:number}>(posts:T[]):Promise<(T & {tags:string[]})[]> {
+export async function withPostTags<T extends {id:number}>(posts:T[]):Promise<(T & {tags:string[];images:import('./image-limits').PostImage[]})[]> {
   if (!posts.length) return [];
   const labels = await db().prepare(`SELECT post_id,label FROM post_tags WHERE post_id IN (${posts.map(()=>'?').join(',')}) ORDER BY label`).all(...posts.map(post=>post.id));
   const byPost = new Map<number,string[]>();
   for (const row of labels) { const id=Number(row.post_id); const tags=byPost.get(id)||[]; tags.push(String(row.label)); byPost.set(id,tags); }
-  return posts.map(post=>({...post,tags:byPost.get(post.id)||[]}));
+  const images=await db().prepare(`SELECT id,post_id,alt,width,height FROM post_images WHERE post_id IN (${posts.map(()=>'?').join(',')}) ORDER BY position,id`).all(...posts.map(post=>post.id));
+  return posts.map(post=>({...post,tags:byPost.get(post.id)||[],images:images.filter(image=>Number(image.post_id)===post.id).map(image=>({id:String(image.id),alt:String(image.alt),width:Number(image.width),height:Number(image.height)}))}));
 }

@@ -8,7 +8,7 @@ try {
   await client.query('BEGIN');
   await client.query('SELECT pg_advisory_xact_lock(716284103)');
   await client.query(readFileSync(new URL('./postgres-schema.sql',import.meta.url),'utf8'));
-  const tables=['communities','profiles','posts','comments','post_tags','votes','comment_votes','saves','memberships','notifications','sessions','recovery_codes','rate_limits','reports','moderation_log'];
+  const tables=['communities','profiles','posts','comments','post_tags','post_images','votes','comment_votes','saves','memberships','notifications','sessions','recovery_codes','rate_limits','reports','moderation_log'];
   const source=process.argv.find(a=>a.startsWith('--import-sqlite='))?.split('=').slice(1).join('=');
   const demo=process.env.TRAILTALK_DEMO_DATA==='true'&&!process.env.VERCEL;
   const fixtures=JSON.parse(readFileSync(new URL('./seed-data.json',import.meta.url),'utf8'));
@@ -17,7 +17,7 @@ try {
     // Import is intentionally restricted to an empty target, never an upsert.
     for(const table of tables){if((await client.query(`SELECT 1 FROM ${table} LIMIT 1`)).rowCount)throw new Error('Import requires an empty destination. Existing data was not changed.');}
     const {DatabaseSync}=await import('node:sqlite');const local=new DatabaseSync(source,{readOnly:true});
-    data=Object.fromEntries(tables.map(t=>[t,t==='post_tags'&&!local.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='post_tags'").get()?[]:local.prepare(`SELECT * FROM ${t} ORDER BY ${t==='comments'?'id':'1'}`).all()]));local.close();
+    data=Object.fromEntries(tables.map(t=>[t,['post_tags','post_images'].includes(t)&&!local.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(t)?[]:local.prepare(`SELECT * FROM ${t} ORDER BY ${t==='comments'?'id':'1'}`).all()]));local.close();
   }else if(!(await client.query('SELECT 1 FROM communities LIMIT 1')).rowCount){
     data=demo?fixtures:{communities:fixtures.communities};
   }
