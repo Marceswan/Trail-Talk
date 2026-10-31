@@ -1,0 +1,13 @@
+node_modules/
+.next/
+next-env.d.ts
+data/
+*.sqlite
+*.sqlite-*
+.env*
+!.env.example
+playwright-report/
+test-results/
+*.tsbuildinfo
+.DS_Store
+.playwright-mcp/
