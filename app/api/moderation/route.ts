@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const p=await payload(request); const d=db();
-    const user=p.action==='report'?await requireAccount():await moderator();
+    let user=p.action==='report'?await requireAccount():await moderator();
     (await rateLimit(`moderation:${user.id}`,60,60000));
     if(p.action==='report') {
       if(!['post','comment'].includes(p.targetType) || !Number.isSafeInteger(p.targetId)) throw new HttpError('Choose a valid report target.');
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
     }
     const reason=textField(p.reason,'Moderation reason',3,500);
     (await transaction(async ()=>{
+      user=await moderator();
       if(p.action==='dismiss') {
         if(!Number.isSafeInteger(p.reportId)||!(await d.prepare("SELECT id FROM reports WHERE id=? AND status='open'").get(p.reportId))) throw new HttpError('Open report not found.',404);
         (await d.prepare("UPDATE reports SET status='dismissed' WHERE id=?").run(p.reportId));

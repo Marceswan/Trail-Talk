@@ -46,6 +46,18 @@ try{
   const inbox=await json(a,'/api/notifications');assert.equal(inbox.unread,1);
   await json(a,'/api/notifications',{action:'readAll'});assert.equal((await json(a,'/api/notifications')).unread,0);
   await admin.query(`UPDATE ${schema}.profiles SET role='admin' WHERE email=$1`,[email]);
+  const adminPanel=await json(a,'/api/admin?q=PG');
+  assert.equal(adminPanel.total,2);assert.ok(adminPanel.users.every(u=>!('password_hash' in u)));
+  assert.equal((await b.get('/api/admin')).status(),403);
+  const readerId=adminPanel.users.find(u=>u.email===`other-${email}`).id;
+  for(const role of ['moderator','admin','user'])await json(a,'/api/admin',{action:'role',userId:readerId,role,reason:'Verify PostgreSQL role management'});
+  await json(a,'/api/admin',{action:'role',userId:adminPanel.viewerId,role:'user',reason:'Prevent self-demotion'},403);
+  const settingsChange={action:'settings',...adminPanel.settings,headline:'Postgres community headline',registrationOpen:false,reason:'Verify persistent site settings'};
+  await json(a,'/api/admin',settingsChange);
+  await json(a,'/api/admin',settingsChange,409);
+  assert.equal((await json(b,'/api/community')).settings.headline,settingsChange.headline);
+  await json(b,'/api/account',{action:'register',email:`closed-${email}`,name:'Blocked Signup',password},403);
+  await json(a,'/api/admin',{...settingsChange,...adminPanel.settings,revision:adminPanel.settings.revision+1});
   for(let i=0;i<2;i++)await json(b,'/api/moderation',{action:'report',targetType:'post',targetId:id,reason:'Other'});
   const moderation=await json(a,'/api/moderation?q=postgres');assert.equal(moderation.reports.length,1);assert.ok(moderation.posts.length);
   await json(a,'/api/moderation',{action:'lock',targetType:'post',targetId:id,reason:'Integration test lock'});
@@ -61,7 +73,7 @@ try{
   assert.equal(spawnSync(process.execPath,['scripts/migrate-postgres.mjs'],{env:{...env,TRAILTALK_DEMO_DATA:'false'},encoding:'utf8'}).status,0);
   const cleaned=await json(a,'/api/community');assert.equal(cleaned.posts.length,1);assert.equal(cleaned.posts[0].id,id);
   assert.equal((await b.get('/posts/1')).status(),404);
-  console.log('Postgres integration passed: migration, accounts, posts, comments, votes, edits, search, inbox, moderation, concurrent recovery.');
+  console.log('Postgres integration passed: migration, accounts, posts, comments, votes, edits, search, inbox, moderation, admin roles, site settings, concurrent recovery.');
 }finally{
   for(const c of contexts)await c.dispose();
   if(server){server.kill('SIGTERM');await new Promise(r=>server.once('exit',r));}

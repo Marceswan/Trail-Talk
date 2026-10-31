@@ -1,6 +1,6 @@
 'use client';
 import { useState, type FormEvent } from 'react';
-export function AccountPanel({ security=false, onDone }: {security?:boolean;onDone:()=>void}) {
+export function AccountPanel({ security=false, registrationOpen=true, onDone }: {security?:boolean;registrationOpen?:boolean;onDone:()=>void}) {
   const [mode,setMode]=useState(security?'security':'login');
   const [busy,setBusy]=useState(false); const [error,setError]=useState('');
   const [codes,setCodes]=useState<string[]>([]); const [message,setMessage]=useState('');
@@ -20,7 +20,8 @@ export function AccountPanel({ security=false, onDone }: {security?:boolean;onDo
   }
   if(codes.length) return <div className="account-panel recovery-sheet"><h3>Save your recovery codes</h3><p>{message}</p><p>Keep these in a password manager or a private file. They will only be shown here once. Anyone with a code can reset your password.</p><ul>{codes.map(code=><li key={code}><code>{code}</code></li>)}</ul><button className="secondary-button" onClick={()=>{const url=URL.createObjectURL(new Blob([`TrailTalk recovery codes\nKeep private. Recovery replaces all codes.\n\n${codes.join('\n')}`],{type:'text/plain'}));const a=document.createElement('a');a.href=url;a.download='trailtalk-recovery-codes.txt';a.click();URL.revokeObjectURL(url);}}>Download codes</button><label className="check-label"><input type="checkbox" checked={saved} onChange={e=>setSaved(e.target.checked)}/>I saved my recovery codes</label><button className="primary-button" disabled={!saved} onClick={onDone}>Continue</button></div>;
   return <div className="account-panel">
-    {!security&&<div className="account-tabs">{[['login','Sign in'],['register','Create account'],['recover','Recover account']].map(([id,label])=><button key={id} type="button" className={mode===id?'selected':''} aria-pressed={mode===id} onClick={()=>{setMode(id);setError('');}}>{label}</button>)}</div>}
+    {!security&&!registrationOpen&&<p className="privacy-note">New account registration is currently closed. Existing members can sign in or recover their account.</p>}
+    {!security&&<div className="account-tabs">{[['login','Sign in'],['register','Create account'],['recover','Recover account']].filter(([id])=>id!=='register'||registrationOpen).map(([id,label])=><button key={id} type="button" className={mode===id?'selected':''} aria-pressed={mode===id} onClick={()=>{setMode(id);setError('');}}>{label}</button>)}</div>}
     <form className="stack-form" onSubmit={submit}>
       {mode==='register'&&<label>Display name<input name="name" autoComplete="nickname" required minLength={2} maxLength={40}/></label>}
       {mode!=='security'&&<label>Email<input name="email" type="email" autoComplete="username" required maxLength={254}/></label>}

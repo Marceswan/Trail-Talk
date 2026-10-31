@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Comment, FeedData } from './types';
+import { siteSettings } from './site-settings';
 
 const globalDb = globalThis as unknown as { trailtalkDb?: DatabaseSync };
 function sqliteDb() {
@@ -16,6 +17,10 @@ function sqliteDb() {
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
     PRAGMA busy_timeout = 5000;
+    CREATE TABLE IF NOT EXISTS site_settings (
+      id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT INTO site_settings (id) VALUES (1) ON CONFLICT(id) DO NOTHING;
     CREATE TABLE IF NOT EXISTS communities (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
       color TEXT NOT NULL, icon TEXT NOT NULL, members INTEGER NOT NULL DEFAULT 0
@@ -156,6 +161,7 @@ export async function feed(user: string): Promise<FeedData> {
   const d = db();
   const posts = await d.prepare(`SELECT ${publicPostColumns} FROM posts p WHERE p.removed=0 ORDER BY p.created_at DESC`).all(user,user,user);
   return {
+    settings: await siteSettings(),
     communities: await d.prepare(`SELECT c.*, EXISTS(SELECT 1 FROM memberships m WHERE m.community=c.id AND m.user_id=?) AS joined,
       c.members + (SELECT COUNT(*) FROM memberships m WHERE m.community=c.id) AS members FROM communities c`).all(user),
     posts: await withPostTags(posts as unknown as {id:number}[]),

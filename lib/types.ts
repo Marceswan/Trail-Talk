@@ -9,7 +9,7 @@ export type Post = {
 };
 export type Comment = { id: number; author_id?:string|null; author: string; body: string; created_at: number; score: number; vote: -1 | 0 | 1; removed: number; parent_id: number | null; owned: number; edited_at: number | null; revision: number };
 export type Profile = { profile_visibility?:string; id?:string; employer?:string; job_title?:string; years_experience?:number|null; location?:string; skills?:string; certifications?:string; website?:string; trailhead_url?:string; name: string; bio: string; email: string | null; role: 'user' | 'moderator' | 'admin'; suspended: number; registered: number };
-export type FeedData = { communities: Community[]; posts: Post[]; profile: Profile };
+export type FeedData = { communities: Community[]; posts: Post[]; profile: Profile; settings?: import('./site-settings-model').VersionedSiteSettings };
 
 export type InboxItem = { id:number; comment_id:number; post_id:number; kind:'reply'|'comment'; author:string; title:string; body:string; created_at:number; read_at:number|null };
 export type InboxData = {items:InboxItem[]; unread:number; nextCursor:number|null};

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '@/lib/db';
+import { siteSettings } from '@/lib/site-settings';
 import { account, digest, endSession, failure, hashPassword, HttpError, passwordField, payload, rateLimit, recoveryCodes, startSession, textField, transaction, verifyPassword, type Account } from '@/lib/auth';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -31,10 +32,12 @@ export async function POST(request: Request) {
     (await rateLimit('auth:global',150,60000));
     const user=(await d.prepare('SELECT * FROM profiles WHERE email=?').get(email)) as Account|undefined;
     if(p.action==='register') {
+      if (!(await siteSettings()).registrationOpen) throw new HttpError('New account registration is currently closed. Existing members can still sign in.',403);
       const name=textField(p.name,'Display name',2,40);
       const hash=await hashPassword(password);
       const id=randomUUID();
       const codes=(await transaction(async ()=>{
+        if (!(await siteSettings()).registrationOpen) throw new HttpError('New account registration is currently closed. Existing members can still sign in.',403);
         if((await d.prepare('SELECT id FROM profiles WHERE email=?').get(email))) throw new HttpError('Unable to create this account. Try signing in or recovering your account.');
         (await d.prepare('INSERT INTO profiles (id,name,email,password_hash) VALUES (?,?,?,?)').run(id,name,email,hash));
         return (await recoveryCodes(id));

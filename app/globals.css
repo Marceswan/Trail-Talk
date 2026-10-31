@@ -320,6 +320,19 @@ button, a, input, textarea, select { min-width: 0; }
 .report-button{font-size:.75rem}
 .profile-button>span:not(.avatar){font-size:.8125rem;white-space:nowrap}
 .moderation-shell{width:min(72rem,100%);margin:0 auto;padding:clamp(1rem,4vw,3rem);color:#526a85}
+.admin-toplinks{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.admin-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin:0 0 1.5rem}
+.admin-overview>div{padding:1rem;border:1px solid #dde6f0;border-radius:.75rem;background:white}
+.admin-overview dt{font-size:.8125rem;line-height:1.5}.admin-overview dd{margin:.4rem 0 0;font-size:1.75rem;font-weight:700;color:#18314e}
+.admin-shell .admin-filters{display:grid;grid-template-columns:minmax(12rem,2fr) minmax(8rem,1fr) minmax(8rem,1fr) auto;align-items:end;gap:.75rem;margin:1.5rem 0 1rem}
+.admin-user{display:flex;justify-content:space-between;gap:1.5rem;align-items:center}
+.admin-user-identity{display:grid;gap:.5rem;min-width:0;overflow-wrap:anywhere}.admin-user-identity>a{color:#18314e}.admin-user-identity>span{font-size:.875rem}
+.admin-user-controls{flex:0 1 22rem;min-width:0}.admin-user-controls .moderation-actions{margin:0;gap:.75rem}
+.admin-self-note{font-size:.8125rem}.admin-pagination{display:flex;justify-content:space-between;align-items:center;gap:.75rem;margin:1.5rem 0;font-size:.8125rem}
+.admin-settings{margin-top:1.5rem}.admin-settings h2{font-size:1.25rem;color:#18314e}.admin-settings>p{max-width:65ch;margin-bottom:1.5rem}
+.admin-settings .stack-form .check-label{display:flex;align-items:center;gap:.65rem;line-height:1.5}.admin-settings .check-label input{width:1.125rem;height:1.125rem;margin:0;flex-shrink:0}
+.site-notice{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:700px){.admin-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.admin-shell .admin-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-shell .admin-filters>label:first-child{grid-column:1/-1}.admin-user{align-items:stretch;flex-direction:column;gap:1rem}.admin-user-controls{flex:auto}.admin-pagination .secondary-button{padding:.6rem .8rem}.admin-toplinks{font-size:.8125rem}}
 .moderation-heading{display:flex;gap:1rem;align-items:center;margin:2rem 0}
 .moderation-heading h1{font-size:clamp(1.75rem,4vw,2.5rem);margin:.25rem 0;color:#18314e}
 .moderation-heading p{line-height:1.5;margin:.5rem 0}
