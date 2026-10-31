@@ -70,6 +70,12 @@ DATABASE_PATH=/persistent-data/trailtalk.sqlite COOKIE_SECURE=true npm start
 
 Set `COOKIE_SECURE=true` behind HTTPS. Back up the database with SQLite's backup API or a consistent filesystem snapshot; remember that an active WAL database may have `-wal` and `-shm` sidecars. Do not deploy this local SQLite build to an ephemeral filesystem. Configure your reverse proxy with request-size and connection limits before public deployment. In-app rate limits are stored in SQLite; authentication also has a global CPU-abuse limit.
 
+### Vercel build settings
+
+`vercel.json` explicitly selects the Next.js framework, runs `npm run build`, and clears any static output-directory override. For `STATIC_BUILD_NO_OUT_DIR` mentioning `public`, use the repository root as the project Root Directory and redeploy the latest commit. This is a server application; do not create an empty `public` directory or enable static export to bypass the error.
+
+This configuration fixes framework selection only. The current local SQLite database still requires a single host with persistent disk. Vercel Functions cannot persist this database; a Vercel deployment needs a managed database integration and corresponding application changes before accounts, posts, and moderation can work reliably. See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json) and [SQLite limitations](https://vercel.com/kb/guide/is-sqlite-supported-in-vercel).
+
 If you later choose Vercel, installing its CLI with `npm i -g vercel` is strongly recommended for `vercel env pull`, `vercel deploy`, and `vercel logs`. That deployment would require replacing local-file SQLite with a persistent hosted database; the current app intentionally stays self-contained.
 
 ## Verify
