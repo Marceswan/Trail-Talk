@@ -1,3 +1,5 @@
+import {validateProfileVisibility} from '@/lib/profile-visibility';
+import { normalizePostTags } from '@/lib/post-tags';
 import { account, requireAccount, HttpError, payload as readPayload, rateLimit, transaction, failure } from '@/lib/auth';
 import { commentsForPost, db, feed } from '@/lib/db';
 
@@ -17,6 +19,12 @@ export async function GET(request: Request) {
 function field(value: unknown, name: string, max: number, min = 1): string {
   if (typeof value !== 'string' || value.trim().length < min || value.trim().length > max) throw new HttpError(`${name} must be ${min}–${max} characters.`);
   return value.trim();
+}
+async function saveTags(postId:number,value:unknown) {
+  let tags:string[];
+  try {tags=normalizePostTags(value);} catch(error) {throw new HttpError((error as Error).message);}
+  await db().prepare('DELETE FROM post_tags WHERE post_id=?').run(postId);
+  for (const tag of tags) await db().prepare('INSERT INTO post_tags (post_id,label) VALUES (?,?)').run(postId,tag);
 }
 export async function POST(request: Request) {
   try {
@@ -63,6 +71,7 @@ export async function POST(request: Request) {
       if(isPost) {
         const title=field(payload.title,'Title',180,5);
         (await d.prepare('UPDATE posts SET title=?,body=?,edited_at=?,revision=revision+1 WHERE id=? AND owner=? AND revision=?').run(title,body,Date.now(),id,user,payload.revision));
+        if(payload.tags!==undefined) await saveTags(id,payload.tags);
       } else {
         (await d.prepare('UPDATE comments SET body=?,edited_at=?,revision=revision+1 WHERE id=? AND owner=? AND revision=?').run(body,Date.now(),id,user,payload.revision));
         const postId=(await d.prepare('SELECT post_id FROM comments WHERE id=?').get(id))!.post_id as number;
@@ -99,6 +108,7 @@ export async function POST(request: Request) {
       if (!['Discussion','Question','Show & tell','Tips & tricks','Career wins'].includes(tag)) throw new HttpError('Choose a valid topic.');
       const initials = profile.name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase();
       const result = (await d.prepare('INSERT INTO posts (community, author, initials, title, body, tag, created_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id').run(community, profile.name, initials, title, body, tag, Date.now(), user));
+      await saveTags(Number(result.lastInsertRowid),payload.tags);
       return Response.json({ ...(await feed(user)), createdId: Number(result.lastInsertRowid) });
     } else if (action === 'comment') {
       if ((await d.prepare('SELECT locked FROM posts WHERE id=?').get(payload.postId))?.locked) throw new HttpError('This conversation is locked by moderators.',403);
@@ -126,9 +136,24 @@ export async function POST(request: Request) {
       }));
     } else if (action === 'profile') {
       const name = field(payload.name, 'Name', 40, 2);
-      const bio = field(payload.bio ?? '', 'Bio', 160, 0);
+      const bio = field(payload.bio ?? '', 'Bio', 1000, 0);
+      const previous = (await d.prepare('SELECT profile_visibility,employer,job_title,years_experience,location,skills,certifications,website,trailhead_url FROM profiles WHERE id=?').get(user))!;
+      let visibility=String(previous.profile_visibility||'{}');
+      if(payload.visibility!==undefined){try{visibility=JSON.stringify(validateProfileVisibility(payload.visibility,previous.profile_visibility));}catch(error){throw new HttpError((error as Error).message);}}
+      const details = Object.fromEntries(['employer','job_title','location','skills','certifications'].map(key=>[key,field(payload[key]??previous[key]??'',key.replaceAll('_',' '),['skills','certifications'].includes(key)?300:100,0)]));
+      const yearsInput=payload.years_experience===undefined?previous.years_experience:payload.years_experience;
+      if(yearsInput!==null&&typeof yearsInput!=='string'&&typeof yearsInput!=='number')throw new HttpError('Enter years of experience as a whole number.');
+      const years=yearsInput===''||yearsInput===null?null:Number(yearsInput);
+      if(years!==null&&(!Number.isInteger(years)||years<0||years>80))throw new HttpError('Years of experience must be a whole number from 0 to 80.');
+      const links:Record<string,string>={};
+      for(const key of ['website','trailhead_url']) {
+        const value=field(payload[key]??previous[key]??'',key==='website'?'Website':'Trailhead URL',500,0);
+        if(value){let url:URL;try{url=new URL(value);}catch{throw new HttpError('Enter a complete website URL starting with https:// or http://.');}
+          if(!['https:','http:'].includes(url.protocol)||url.username||url.password)throw new HttpError('Profile links must use https:// or http:// without embedded credentials.');}
+        links[key]=value;
+      }
       await transaction(async () => {
-        (await d.prepare('UPDATE profiles SET name=?, bio=? WHERE id=?').run(name, bio, user));
+        (await d.prepare('UPDATE profiles SET name=?,bio=?,employer=?,job_title=?,years_experience=?,location=?,skills=?,certifications=?,website=?,trailhead_url=?,profile_visibility=? WHERE id=?').run(name,bio,details.employer,details.job_title,years,details.location,details.skills,details.certifications,links.website,links.trailhead_url,visibility,user));
         (await d.prepare('UPDATE posts SET author=?, initials=? WHERE owner=?').run(name, name.split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase(), user));
         (await d.prepare('UPDATE comments SET author=? WHERE owner=?').run(name, user));
       });

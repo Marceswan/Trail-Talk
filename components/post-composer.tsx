@@ -4,6 +4,8 @@ import {Check,FilePenLine,LoaderCircle,Plus} from 'lucide-react';
 import type {Community,FeedData,Profile} from '@/lib/types';
 import {topics} from '@/lib/feed-navigation';
 import {Dialog} from './dialog';
+import {TagField} from './tag-field';
+import {normalizePostTags} from '@/lib/post-tags';
 import {MarkdownEditor} from './markdown-editor';
 import {usePostDraft} from './use-post-draft';
 
@@ -26,7 +28,7 @@ export function PostComposer({profile,communities,initialCommunity,initialTopic,
       e.preventDefault();if(sending.current||status==='conflict')return;
       sending.current=true;setBusy(true);setError('');setNeedsSignIn(false);
       try {
-        const response=await fetch('/api/community',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'post',...draft,expectedAccount:profile.email})});
+        const response=await fetch('/api/community',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'post',...draft,tags:normalizePostTags((draft.tagsText||'').split(',')),expectedAccount:profile.email})});
         const result=await response.json();
         if(!response.ok){setNeedsSignIn(response.status===401);throw new Error(result.error||'Your post could not be published. Your draft is still here.');}
         onPublished(result,draft.tag,saved.clearPublished());
@@ -43,6 +45,7 @@ export function PostComposer({profile,communities,initialCommunity,initialTopic,
         <div className="form-row"><label>Community<select aria-label="Community" name="community" value={draft.community} onChange={e=>saved.update({community:e.target.value})}>{!communities.some(c=>c.id===draft.community)&&<option value={draft.community} disabled>Choose an available community</option>}{communities.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label>Topic<select aria-label="Topic" name="tag" value={draft.tag} onChange={e=>saved.update({tag:e.target.value})}>{topics.slice(1).map(t=><option key={t}>{t}</option>)}</select></label></div>
         <label>Title<input ref={titleRef} name="title" required minLength={5} maxLength={180} value={draft.title} onChange={e=>saved.update({title:e.target.value})} placeholder="Give your conversation a good starting point"/></label>
         <MarkdownEditor label="Your post" name="body" required minLength={10} maxLength={10000} rows={7} value={draft.body} disabled={busy} onChange={body=>saved.update({body})} placeholder="Share a little context. What have you tried? What did you learn?"/>
+        <TagField value={draft.tagsText||''} onChange={tagsText=>saved.update({tagsText})}/>
       </fieldset>
       <div className="posting-as"><span className="avatar profile-avatar">{profile.name.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</span><span>Posting as <strong>{profile.name}</strong></span></div>
       {error&&<div className="form-error" role="alert"><p>{error}</p>{needsSignIn&&<button type="button" className="text-button" onClick={()=>close('signin')}>Sign in to publish</button>}</div>}

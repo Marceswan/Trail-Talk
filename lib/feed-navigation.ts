@@ -3,7 +3,7 @@ export const views:View[]=['home','popular','latest','saved','following','mine',
 export const topics=['All posts','Discussion','Question','Show & tell','Tips & tricks','Career wins'];
 export function feedUrl(params:URLSearchParams) {
   const safe=new URLSearchParams();
-  for(const key of ['view','community','q','topic','sort','status']) {
+  for(const key of ['view','community','q','topic','sort','status','label']) {
     const value=params.get(key);
     if(value) safe.set(key,value.slice(0,250));
   }

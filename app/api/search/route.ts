@@ -1,6 +1,6 @@
 import { account, failure, HttpError } from '@/lib/auth';
 import { isPostgres } from '@/lib/database';
-import { db, publicPostColumns } from '@/lib/db';
+import { db, publicPostColumns, withPostTags } from '@/lib/db';
 import { searchSnippet, searchTerms } from '@/lib/search-text';
 import type { Post } from '@/lib/types';
 export const runtime='nodejs';
@@ -18,8 +18,10 @@ export async function GET(request:Request){
     const titleMatch=match('p.title');
     const postMatch=match("(p.title||' '||p.body||' '||p.author||' '||community.name)");
     const commentMatch=match("(c.body||' '||c.author)");
-    const conditions=['p.removed=0',`((${postMatch}) OR EXISTS(SELECT 1 FROM comments c WHERE c.post_id=p.id AND c.removed=0 AND ${commentMatch}))`];
-    const values:(string|number)[]=[...patterns,...patterns];
+    const tagMatch=match('t.label');
+    const conditions=['p.removed=0',`((${postMatch}) OR EXISTS(SELECT 1 FROM comments c WHERE c.post_id=p.id AND c.removed=0 AND ${commentMatch}) OR EXISTS(SELECT 1 FROM post_tags t WHERE t.post_id=p.id AND ${tagMatch}))`];
+    const values:(string|number)[]=[...patterns,...patterns,...patterns];
+    const label=params.get('label');if(label){conditions.push('EXISTS(SELECT 1 FROM post_tags t WHERE t.post_id=p.id AND t.label=?)');values.push(label);}
     const view=params.get('view');const community=params.get('community');const topic=params.get('topic');const status=params.get('status');
     if(community){conditions.push('p.community=?');values.push(community);}
     if(view==='questions')conditions.push("p.tag='Question'");else if(topic&&topic!=='All posts'){conditions.push('p.tag=?');values.push(topic);}
@@ -37,6 +39,6 @@ export async function GET(request:Request){
       const comment=(await findComment.get(row.id,...patterns)) as {id:number;author:string;body:string}|undefined;
       return {...row,match_comment:comment?{id:comment.id,author:comment.author,excerpt:searchSnippet(comment.body,terms)}:null};
     }));
-    return Response.json({posts,total,page,hasMore:page*20<total},{headers});
+    return Response.json({posts:await withPostTags(posts),total,page,hasMore:page*20<total},{headers});
   }catch(error){if(error instanceof HttpError)return failure(error);console.error('Search failed',error instanceof Error?error.name:'Unknown error');return Response.json({error:'Search could not load. Please try again.'},{status:500,headers});}
 }

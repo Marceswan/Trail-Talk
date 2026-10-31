@@ -1,0 +1,130 @@
+[
+  {
+    "id": "flow-n-tell",
+    "name": "Flow 'n Tell",
+    "description": "Showcase what you've built. Share your flows, apps, automations, and demos, get feedback, and help others learn from your work.",
+    "color": "#8657c7",
+    "icon": "sparkles",
+    "members": 0
+  },
+  {
+    "id": "slack",
+    "name": "Slack",
+    "description": "Share Slack workflows, Salesforce integrations, apps, and tips for helping your team work together.",
+    "color": "#611f69",
+    "icon": "message",
+    "members": 0
+  },
+  {
+    "id": "claudeforce-siforce",
+    "name": "Claudeforce/SIForce",
+    "description": "A home for Claudeforce and SIForce. Share projects, ask questions, and compare notes with the community.",
+    "color": "#b76a48",
+    "icon": "sparkles",
+    "members": 0
+  },
+  {
+    "id": "financial-services",
+    "name": "Financial Services",
+    "description": "Banking, insurance, wealth management, and financial services implementations. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#3673a5",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "health-cloud",
+    "name": "Health Cloud",
+    "description": "Care coordination, patient experiences, and healthcare solutions. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#258c8b",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "education",
+    "name": "Education",
+    "description": "Admissions, student success, alumni engagement, and education solutions. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#6661b6",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "nonprofit",
+    "name": "Nonprofit",
+    "description": "Fundraising, programs, grants, and nonprofit operations. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#ba618d",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "manufacturing",
+    "name": "Manufacturing",
+    "description": "Sales agreements, forecasting, partner networks, and manufacturing solutions. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#607b99",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "energy-utilities",
+    "name": "Energy & Utilities",
+    "description": "Customer service, energy programs, and utility industry workflows. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#638b44",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "public-sector",
+    "name": "Public Sector",
+    "description": "Government services, licensing, permits, and public sector implementations. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#466a99",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "automotive",
+    "name": "Automotive",
+    "description": "Vehicle lifecycles, dealer networks, and automotive customer experiences. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#a66c49",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "consumer-goods",
+    "name": "Consumer Goods",
+    "description": "Retail execution, trade promotion, and consumer goods operations. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#ae7c28",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "communications",
+    "name": "Communications",
+    "description": "Telecom service, industry catalogs, orders, and communications workflows. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#567db5",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "media",
+    "name": "Media",
+    "description": "Advertising, subscriptions, content businesses, and media industry solutions. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#9a61a7",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "life-sciences",
+    "name": "Life Sciences",
+    "description": "Life sciences customer engagement, industry data, and implementation practices. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#298c80",
+    "icon": "cloud",
+    "members": 0
+  },
+  {
+    "id": "retail",
+    "name": "Retail",
+    "description": "Connected shopping, loyalty, customer service, and retail experiences. Share questions, lessons, and builds with fellow practitioners.",
+    "color": "#bf6d60",
+    "icon": "cloud",
+    "members": 0
+  }
+]

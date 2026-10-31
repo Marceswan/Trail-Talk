@@ -72,3 +72,18 @@ CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS reports_open ON reports(reporter,target_type,target_id) WHERE status='open';
 CREATE INDEX IF NOT EXISTS comments_parent ON comments(parent_id);
 CREATE INDEX IF NOT EXISTS notifications_recipient ON notifications(recipient,id DESC);
+
+    CREATE TABLE IF NOT EXISTS post_tags (
+      post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+      label TEXT NOT NULL, PRIMARY KEY(post_id,label)
+    );
+    CREATE INDEX IF NOT EXISTS post_tags_label ON post_tags(label,post_id);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS employer TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS job_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS location TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS skills TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS certifications TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS website TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS trailhead_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS years_experience INTEGER CHECK(years_experience BETWEEN 0 AND 80);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS profile_visibility TEXT NOT NULL DEFAULT '{}';

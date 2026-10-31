@@ -12,7 +12,7 @@ let server;const contexts=[];
 try{
   await admin.query(`CREATE SCHEMA ${schema}`);
   const url=new URL(connection);url.searchParams.set('options',`-c search_path=${schema}`);
-  const env={...process.env,DATABASE_PATH:'',DATABASE_URL:url.href,DATABASE_URL_UNPOOLED:url.href,COOKIE_SECURE:'false',VERCEL:''};
+  const env={...process.env,DATABASE_PATH:'',DATABASE_URL:url.href,DATABASE_URL_UNPOOLED:url.href,COOKIE_SECURE:'false',VERCEL:'',TRAILTALK_DEMO_DATA:'true'};
   const migrated=spawnSync(process.execPath,['scripts/migrate-postgres.mjs'],{env,encoding:'utf8'});assert.equal(migrated.status,0,migrated.stderr);
   // Idempotent migration must preserve content and identity sequences.
   assert.equal(spawnSync(process.execPath,['scripts/migrate-postgres.mjs'],{env,encoding:'utf8'}).status,0);
@@ -25,8 +25,12 @@ try{
   const email=`postgres-${randomUUID()}@example.com`;
   const registered=await json(a,'/api/account',{action:'register',email,name:'PG Author',password},201);assert.equal(registered.codes.length,5);
   await json(b,'/api/account',{action:'register',email:`other-${email}`,name:'PG Reader',password},201);
-  const feed=await json(a,'/api/community');assert.equal(feed.posts.length,6);assert.equal(feed.profile.registered,1);
-  const created=await json(a,'/api/community',{action:'post',title:'Postgres SEARCH 50%_literal?',body:'A durable PostgreSQL question for integration verification.',community:'salesforce',tag:'Question'});const id=created.createdId;assert.ok(id>6);
+  const feed=await json(a,'/api/community');assert.equal(feed.posts.length,6);assert.ok(feed.communities.some(c=>c.id==='flow-n-tell'&&c.name==="Flow 'n Tell"));assert.equal(feed.profile.registered,1);for(const community of ['slack','claudeforce-siforce','health-cloud','financial-services','education'])assert.ok(feed.communities.some(c=>c.id===community));
+  await json(a,'/api/community',{action:'profile',name:'PG Author',bio:'Postgres profile',employer:'Hidden Employer',job_title:'Architect',years_experience:7,visibility:{employer:false,email:false}});
+  let publicPage=await (await a.get(`/members/${feed.profile.id}`)).text();assert.ok(publicPage.includes('Architect'));assert.ok(!publicPage.includes('Hidden Employer'));assert.ok(!publicPage.includes(email));
+  await json(a,'/api/community',{action:'profile',name:'PG Author',bio:'Postgres profile',visibility:{email:true,employer:false}});
+  publicPage=await (await a.get(`/members/${feed.profile.id}`)).text();assert.ok(publicPage.includes(email));assert.ok(!publicPage.includes('Hidden Employer'));
+  const created=await json(a,'/api/community',{action:'post',title:'Postgres SEARCH 50%_literal?',body:'A durable PostgreSQL question for integration verification.',community:'salesforce',tag:'Question',tags:['Health Cloud','Flow']});const id=created.createdId;assert.ok(id>6);assert.deepEqual(created.posts.find(p=>p.id===id).tags,['flow','health-cloud']);
   await json(b,'/api/community',{action:'comment',postId:id,body:'A useful persisted answer.'});
   const comments=await json(a,`/api/community?post=${id}`);const commentId=comments.comments[0].id;assert.ok(commentId>8);
   await json(a,'/api/community',{action:'commentVote',commentId,value:1});
@@ -37,6 +41,8 @@ try{
   for(const sort of ['relevance','new','top','best'])assert.equal((await json(a,`/api/search?q=postgres&sort=${sort}`)).posts[0].id,id);
   assert.equal((await json(a,'/api/search?q=50%25_literal%3F')).posts[0].id,id);
   for(const action of ['save','join'])for(let i=0;i<2;i++)await json(a,'/api/community',{action,postId:id,community:'salesforce',value:true});
+  assert.equal((await json(a,'/api/search?q=health-cloud')).posts[0].id,id);
+  assert.equal((await json(a,'/api/search?q=postgres&label=other')).posts.length,0);
   const inbox=await json(a,'/api/notifications');assert.equal(inbox.unread,1);
   await json(a,'/api/notifications',{action:'readAll'});assert.equal((await json(a,'/api/notifications')).unread,0);
   await admin.query(`UPDATE ${schema}.profiles SET role='admin' WHERE email=$1`,[email]);
@@ -52,6 +58,9 @@ try{
   await json(a,'/api/community',{action:'vote',postId:id,value:1},401);
   await json(a,'/api/account',{action:'login',email,password:password+'new'});
   await json(a,'/api/account',{action:'recover',email,code:registered.codes[1],password},401);
+  assert.equal(spawnSync(process.execPath,['scripts/migrate-postgres.mjs'],{env:{...env,TRAILTALK_DEMO_DATA:'false'},encoding:'utf8'}).status,0);
+  const cleaned=await json(a,'/api/community');assert.equal(cleaned.posts.length,1);assert.equal(cleaned.posts[0].id,id);
+  assert.equal((await b.get('/posts/1')).status(),404);
   console.log('Postgres integration passed: migration, accounts, posts, comments, votes, edits, search, inbox, moderation, concurrent recovery.');
 }finally{
   for(const c of contexts)await c.dispose();

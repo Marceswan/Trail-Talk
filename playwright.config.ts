@@ -16,6 +16,6 @@ export default defineConfig({
     url: 'http://127.0.0.1:3100',
     timeout: 120000,
     reuseExistingServer: false,
-    env: { DATABASE_PATH: process.env.TEST_DATABASE_PATH },
+    env: { TRAILTALK_DEMO_DATA: 'true', DATABASE_PATH: process.env.TEST_DATABASE_PATH },
   },
 });

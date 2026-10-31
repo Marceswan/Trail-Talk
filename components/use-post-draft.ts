@@ -2,7 +2,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {topics} from '@/lib/feed-navigation';
 
-export type PostDraft = {title:string; body:string; community:string; tag:string};
+export type PostDraft = {title:string; body:string; community:string; tag:string; tagsText?:string};
 type Status = 'empty' | 'saved' | 'restored' | 'error' | 'conflict' | 'invalid';
 export const draftKey = (account:string) => `trailtalk-post-draft:v1:${encodeURIComponent(account.toLowerCase())}`;
 const hasText = (draft:PostDraft) => Boolean(draft.title || draft.body);
@@ -11,7 +11,7 @@ function parseDraft(raw:string|null):PostDraft|null {
   try {
     const value=JSON.parse(raw);
     if (value.version!==1 || typeof value.title!=='string' || value.title.length>180 || typeof value.body!=='string' || value.body.length>10000 || typeof value.community!=='string' || !value.community || value.community.length>40 || !topics.slice(1).includes(value.tag)) return null;
-    return {title:value.title, body:value.body, community:value.community, tag:value.tag};
+    return {title:value.title, body:value.body, community:value.community, tag:value.tag, tagsText:typeof value.tagsText==='string'?value.tagsText.slice(0,180):''};
   } catch { return null; }
 }
 
