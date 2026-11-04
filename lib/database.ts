@@ -16,8 +16,14 @@ let sqlite: (() => DatabaseSync) | undefined;
 let queue: Promise<unknown> = Promise.resolve();
 export function useSQLite(factory: () => DatabaseSync) { sqlite = factory; }
 export const isPostgres = () => !process.env.DATABASE_PATH && Boolean(process.env.DATABASE_URL);
+// pg 9 turns sslmode=require/prefer/verify-ca into weaker libpq checks; pin today's strict verify-full.
+function strictSSL(url = '') {
+  const parsed = new URL(url);
+  if (['prefer', 'require', 'verify-ca'].includes(parsed.searchParams.get('sslmode') ?? '')) parsed.searchParams.set('sslmode', 'verify-full');
+  return parsed.href;
+}
 function pool() {
-  return globalState.trailtalkPool ||= new Pool({ connectionString: process.env.DATABASE_URL, max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 15000, allowExitOnIdle: true, enableChannelBinding: true });
+  return globalState.trailtalkPool ||= new Pool({ connectionString: strictSSL(process.env.DATABASE_URL), max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 15000, allowExitOnIdle: true, enableChannelBinding: true });
 }
 function serial<T>(run: () => T | Promise<T>): Promise<T> {
   const next = queue.then(run, run);
